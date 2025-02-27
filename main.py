@@ -1,11 +1,13 @@
 import streamlit as st
 import requests
 from datetime import datetime
+from dotenv import load_dotenv
+import os
 import time
 from streamlit_image_comparison import image_comparison
 
-
-NASA_API_KEY = "" 
+load_dotenv()
+NASA_API_KEY = os.getenv("NASA_API_KEY") 
 
 st.set_page_config("Hubble vs Webb & Live Feed", "🔭")
 
@@ -13,7 +15,7 @@ st.header("🔭 Hubble vs Webb Telescope & Live Observations")
 
 #function to get latest Hubble image from NASA's APOD API
 def get_nasa_apod():
-    url = f"https://api.nasa.gov/planetary/apod?api_key={NASA_API_KEY}&count=10"  
+    url = f"https://api.nasa.gov/planetary/apod?api_key={NASA_API_KEY}&count=5"  
     try:
         response = requests.get(url)
         if response.status_code == 200:
@@ -24,9 +26,23 @@ def get_nasa_apod():
         st.error(f"Error fetching NASA APOD data: {e}")
         return None
 
+#Function to get Webb telescope images from NASA's Images API
+def get_webb_images():
+    url = "https://images-api.nasa.gov/search?q=James%20Webb%20Telescope&media_type=image"
+    try:
+        response = requests.get(url)
+        if response.status_code == 200:
+            data = response.json()
+            return data["collection"]["items"][:5]  
+        else:
+            return None
+    except Exception as e:
+        st.error(f"Error fetching Webb telescope images: {e}")
+        return None
+
 #Function to get Hubble live feed (if available)
 def get_hubble_live():
-    hubble_live_url = "https://hubblesite.org/api/v3/live"  #Hubble live API
+    hubble_live_url = "https://hubblesite.org/api/v3/live"  
     try:
         response = requests.get(hubble_live_url)
         if response.status_code == 200:
@@ -47,7 +63,6 @@ if hubble_data:
     image_url = hubble_data.get("image", "")
     observation_time = hubble_data.get("timestamp", "")
 
-    # Convert timestamp to readable format
     if observation_time:
         observation_time = datetime.utcfromtimestamp(observation_time).strftime("%Y-%m-%d %H:%M:%S UTC")
 
@@ -58,7 +73,7 @@ if hubble_data:
 else:
     st.warning("Hubble live feed is currently unavailable.")
 
-# 🛰️ **Latest NASA Space Images**
+#🛰️ **Latest NASA Space Images**
 st.subheader("🛰️ Latest NASA Space Images")
 
 nasa_images = get_nasa_apod()
@@ -77,7 +92,25 @@ if nasa_images:
         st.markdown(f"📝 **Description:** {explanation}")
         st.write("---")
 
-# 🔭 **Hubble vs Webb Telescope Image Comparison**
+#🔭 **James Webb Space Telescope Images**
+st.subheader("🔭 Latest Images from James Webb Space Telescope")
+
+webb_images = get_webb_images()
+
+if webb_images:
+    for item in webb_images:
+        title = item["data"][0]["title"]
+        image_url = item["links"][0]["href"]
+        description = item["data"][0].get("description", "No details available.")
+
+        st.markdown(f"### {title}")
+        st.image(image_url, caption=title, use_container_width=True)
+        st.markdown(f"📝 **Description:** {description}")
+        st.write("---")
+else:
+    st.warning("No new Webb telescope images available.")
+
+#🔭 **Hubble vs Webb Telescope Image Comparison**
 st.subheader("🔭 Hubble vs Webb Telescope Comparison")
 
 comparisons = [
@@ -112,6 +145,5 @@ for comp in comparisons:
         label2="Webb"
     )
 
-# Auto-refresh every 60 seconds
 time.sleep(60)
 st.experimental_rerun()
